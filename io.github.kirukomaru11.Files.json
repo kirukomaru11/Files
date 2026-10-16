@@ -1,0 +1,28 @@
+{
+    "app-id" : "io.github.kirukomaru11.Files",
+    "runtime" : "org.gnome.Platform",
+    "runtime-version" : "master",
+    "sdk" : "org.gnome.Platform",
+    "command" : "files",
+    "finish-args" : [ "--device=dri", "--filesystem=host-root", "--filesystem=host", "--filesystem=~/.var/app", "--filesystem=~/.local/share/flatpak", "--filesystem=/boot", "--filesystem=/efi", "--filesystem=/root", "--filesystem=/sys", "--filesystem=/tmp", "--filesystem=/var/lib/flatpak", "--filesystem=/run/user", "--socket=wayland" ],
+    "modules" : [
+        {
+            "name" : "main",
+            "buildsystem" : "simple",
+            "build-commands" : [ "mv utils/* .", "env", "python ${FLATPAK_ID##*.}.py --install" ],
+            "sources" : [
+                {
+                    "type" : "git",
+                    "url" : "https://github.com/kirukomaru11/Files.git",
+                    "branch" : "main"
+                },
+                {
+                    "type" : "git",
+                    "url" : "https://github.com/kirukomaru11/Utils.git",
+                    "branch" : "main",
+                    "dest" : "utils"
+                }
+            ]
+        }
+    ]
+}
