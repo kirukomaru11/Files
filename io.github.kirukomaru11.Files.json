@@ -1,7 +1,7 @@
 {
     "app-id" : "io.github.kirukomaru11.Files",
     "runtime" : "org.gnome.Platform",
-    "runtime-version" : "master",
+    "runtime-version" : "51",
     "sdk" : "org.gnome.Platform",
     "command" : "files",
     "finish-args" : [ "--device=dri", "--filesystem=host-root", "--filesystem=host", "--filesystem=~/.var/app", "--filesystem=~/.local/share/flatpak", "--filesystem=/boot", "--filesystem=/efi", "--filesystem=/root", "--filesystem=/sys", "--filesystem=/tmp", "--filesystem=/var/lib/flatpak", "--filesystem=/run/user", "--socket=wayland" ],
