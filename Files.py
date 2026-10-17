@@ -1581,6 +1581,7 @@ class Operation(ListObject):
                         Task.invoke(setattr, self, "progress", copied / total if total else 1)
                 v.close()
             for i in dirs: make_dirs(Path(new, i.split(old, 1)[-1]))
+        elif is_link(old): copy(old, new)
         else:
             with open(old, "rb") as src, open(new, "wb") as dst:
                 total = fstat(src.fileno()).st_size
