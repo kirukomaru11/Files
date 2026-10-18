@@ -2382,8 +2382,9 @@ APP_CSS = """
 .files-window .operations operation box { margin: 0px; border-spacing: 6px; }
 .files-window .operations operation > box > image { -gtk-icon-size: 20px; padding: 0px 6px; }
 .files-window .operations listview { border-spacing: 8px; padding: 0px; }
-.files-window .operations listview row { margin: 0px; padding: 0px; background: color-mix(in srgb, currentColor 5%, transparent); }.files-window .operations scrolledwindow scrollbar { padding: 0px; }
-
+.files-window .operations listview row { margin: 0px; padding: 0px; background: color-mix(in srgb, currentColor 5%, transparent); }
+.files-window .operations scrolledwindow scrollbar { padding: 0px; }
+.files-window .operations scrolledwindow scrollbar range trough slider { min-height: 28px; }
 .files-window :drop(active) .highlight { border-color: var(--accent-bg-color); box-shadow: inset 0 0 0 1px var(--accent-bg-color); caret-color: var(--accent-bg-color); }
 
 .files-window icon-size { padding: 0px 14px; }
