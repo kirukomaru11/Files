@@ -1639,7 +1639,11 @@ class Operation(ListObject):
                 self.progress = 1
             Task(self.do_copy, callback=do_finish).start()
         else:
-            Gio.File.new_for_path(a).move(Gio.File.new_for_path(b), Gio.FileCopyFlags.NOFOLLOW_SYMLINKS)
+            try: Gio.File.new_for_path(a).move(Gio.File.new_for_path(b), Gio.FileCopyFlags.NOFOLLOW_SYMLINKS)
+            except Exception as e:
+                if "Permission denied" in str(e): Toast("Permission denied")
+                else: Toast(e)
+                return
             Window.data_init()
             if Window.data.exists(table="Icons", conditions="Path = ?", conds=(a,)):
                 v = Window.data.read(table="Icons", column="Icon", conditions="Path = ?", conds=(a,))
