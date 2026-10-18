@@ -2210,6 +2210,7 @@ class FileDialog(Window):
                 menu = m["!a"]
             self.options = menu
         if self.default_filter: self.lookup_action("filter").set_state(get_variant(self.default_filter.get_name()))
+        elif self.filters: self.lookup_action("filter").set_state(get_variant(self.filters.get_item(0).get_name()))
         self.present()
         if self.entry.get_visible(): self.entry.grab_focus()
 
