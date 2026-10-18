@@ -946,7 +946,7 @@ class Info(Gio.FileInfo):
         if self.path.endswith(".svg"):
             Task.invoke(setattr, self, "display_icon", Gtk.IconPaintable.new_for_file(Gio.File.new_for_path(self.path), 1, 1))
             return
-        elif img and self.icon:
+        elif not self.is_archived and img and self.icon:
             if self.path in Thumbnailer.paintables:
                 Task.invoke(setattr, self, "display_icon", Thumbnailer.paintables[self.path])
                 return
@@ -966,7 +966,7 @@ class Info(Gio.FileInfo):
         elif isinstance(r, Gio.Icon): Task.invoke(image.set_from_gicon, r)
         else: Task.invoke(image.set_from_icon_name, "image-missing-symbolic")
 
-Info.files = List(Info, "path")
+Info.files = List(Info, "path", static=True)
 Info.alphabetical_sort = Gtk.StringSorter(expression=Gtk.PropertyExpression.new(Info, None, "path"))
 Info.content_type_sort = Gtk.StringSorter(expression=Gtk.PropertyExpression.new(Info, None, "content-type"))
 Info.modified_sort = Gtk.NumericSorter(expression=Gtk.ClosureExpression.new(int, Info.modified_expression, None))
@@ -1123,7 +1123,7 @@ class View(Gtk.Overlay):
                         for i in files + folders:
                             path = f"{archive.path}|{GLib.DIR_SEPARATOR_S}{i.filename if isinstance(i, zipfile.ZipInfo) else i.name if isinstance(i, tarfile.TarInfo) else ''}"
                             d = (hasattr(i, "is_dir") and i.is_dir()) or (hasattr(i, "isdir") and i.isdir())
-                            info = Info(path=path, is_archived=True, size=i.size if hasattr(i, "size") else i.file_size, modification=GLib.DateTime.new_from_unix_utc(i.mtime) if hasattr(i, "mtime") else GLib.DateTime.new(GLib.TimeZone.new_local(), *i.date_time), content_type="inode/directory" if d else Gio.content_type_guess(path)[0], file_type=Gio.FileType.DIRECTORY if d else Gio.FileType.REGULAR)
+                            Info(path=path, is_archived=True, size=i.size if hasattr(i, "size") else i.file_size, modification=GLib.DateTime.new_from_unix_utc(i.mtime) if hasattr(i, "mtime") else GLib.DateTime.new(GLib.TimeZone.new_local(), *i.date_time), content_type="inode/directory" if d else Gio.content_type_guess(path)[0], file_type=Gio.FileType.DIRECTORY if d else Gio.FileType.REGULAR).set_display_name(basename(path))
                         archive.archive_modified = archive.modification.to_unix()
                     else:
                         extra = True
