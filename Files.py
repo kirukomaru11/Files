@@ -1914,7 +1914,10 @@ class Properties(PopupDialog):
                 spinner = Adw.Spinner()
                 row.add_suffix(spinner)
                 Task.invoke(self.group.add, row)
-                size = GLib.spawn_command_line_sync(f"du -s \"{self.path}\"")[1].decode().strip().rsplit("\n", 1)[-1].split("\t", 1)[0]
+                if infos[0].is_archived:
+                    size = GLib.format_size(infos[0].size)
+                else:
+                    size = GLib.spawn_command_line_sync(f"du -s \"{self.path}\"")[1].decode().strip().rsplit("\n", 1)[-1].split("\t", 1)[0]
                 if size.isdigit():
                     size = GLib.format_size(int(size) * 1000)
                 if self.cancellable.is_cancelled(): return
