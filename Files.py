@@ -2103,11 +2103,12 @@ class FileDialog(Window):
             self.default_filter = next((self.filters.get_item(n) for n in range(self.filters.get_n_items()) if self.filters.get_item(n).get_name() == a), None) if self.filters else None
 
     def default_filter_changed(self, p=None):
-        for i in self.view.get_pages():
-            i = i.get_child()
-            if isinstance(i.get_child(), View):
-                while i.get_child().filters.get_n_items() > 1: i.get_child().filters.remove(1)
-                if self.default_filter: i.get_child().filters.append(self.default_filter)
+        if self.filters or self.default_filter:
+            for i in self.view.get_pages():
+                i = i.get_child()
+                if isinstance(i.get_child(), View):
+                    while i.get_child().filters.get_n_items() > 1: i.get_child().filters.remove(1)
+                    if self.default_filter: i.get_child().filters.append(self.default_filter)
 
     def setup_filters(self, view):
         if self.default_filter: view.filters.append(self.default_filter)
