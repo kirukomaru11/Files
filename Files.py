@@ -5,7 +5,8 @@ except ModuleNotFoundError:
         from .Utils import *
     except ModuleNotFoundError:
         print("No Utils")
-        exit()
+        import sys
+        sys.exit()
 
 import zipfile
 import tarfile
