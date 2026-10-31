@@ -2193,7 +2193,7 @@ class FileDialog(Window):
         if self.initial_folder:
             t = None
             for i in self.view.get_pages():
-                if i.get_child().path == self.initial_folder.get_path():
+                if display(i.get_child().path) == self.initial_folder.get_path():
                     t = i.get_child()
             if not t:
                 t = Tab.create(view=self.view, path=self.initial_folder.get_path())
