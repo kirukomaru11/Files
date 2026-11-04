@@ -14,8 +14,6 @@ from os import stat, fstat
 from shutil import disk_usage
 
 class Window(Window):
-    __gtype_name__ = "Window"
-
     prev_button = GObject.Property(type=Gtk.Button)
     next_button = GObject.Property(type=Gtk.Button)
     operations = GObject.Property(type=Gtk.Widget)
@@ -485,8 +483,6 @@ class Window(Window):
         tab.load(history=True)
 
 class Search(Adw.Bin):
-    __gtype_name__ = "Search"
-
     text = GObject.Property(type=Gtk.Text)
     preview = GObject.Property(type=Gtk.ScrolledWindow)
     autocomplete = GObject.Property(type=Autocomplete)
@@ -590,7 +586,6 @@ class Search(Adw.Bin):
         else: self.set_preview()
 
 class Tab(Adw.Bin):
-    __gtype_name__ = "Tab"
     tab = GObject.Property(type=Adw.TabPage)
     path = GObject.Property(type=str)
     history = GObject.Property(type=object)
@@ -601,7 +596,7 @@ class Tab(Adw.Bin):
     def current(*_): return Window.current.view.get_selected_page().get_child() if Window.current and Window.current.view.get_selected_page() else None
 
     def __init__(self, path=False, view=None, prepend=False):
-        super().__init__(css_name=self.__gtype_name__.lower())
+        super().__init__(css_name=self.__class__.__name__.lower())
         view = view or Window.current.view
         current_tab = self.__class__.current
         if path == False:
@@ -714,7 +709,6 @@ class Tab(Adw.Bin):
         view.get_root().lookup_action("reopen-tab").set_enabled(bool(Tab.closed))
 
 class Info(Gio.FileInfo):
-    __gtype_name__ = "Info"
     archive_types = ("application/zip", "application/x-gtar", "application/x-tar", "application/x-xz-compressed-tar", "application/x-compressed-tar")
     attributes = "standard::name,standard::display-name,standard::type,standard::icon,standard::is-symlink,standard::symlink-target,standard::content-type,standard::size,time::modified,metadata::custom-icon,unix::is-mountpoint"
     path = GObject.Property(type=str)
@@ -974,7 +968,6 @@ Info.modified_sort = Gtk.NumericSorter(expression=Gtk.ClosureExpression.new(int,
 Info.size_sort = Gtk.NumericSorter(expression=Gtk.PropertyExpression.new(Info, None, "size"))
 
 class View(Gtk.Overlay):
-    __gtype_name__ = "View"
     path = GObject.Property(type=str)
 
     any_filter = Gtk.FileFilter()
@@ -1301,7 +1294,6 @@ class ColumnItem:
         columns[i] = factory
 
 class GridItem(Gtk.Overlay):
-    __gtype_name__ = "GridItem"
     info = GObject.Property(type=Info)
     image = GObject.Property(type=Gtk.Image)
     label = GObject.Property(type=Gtk.Label)
@@ -1358,8 +1350,6 @@ class GridItem(Gtk.Overlay):
     factory.connect("teardown", teardown)
 
 class Context(Gtk.PopoverMenu):
-    __gtype_name__ = "Context"
-
     widget = GObject.Property(type=GObject.Object)
 
     def __init__(self):
@@ -1434,8 +1424,6 @@ class Context(Gtk.PopoverMenu):
         if action == "Compress": return Compress(view.path, infos)
 
 class Compress(Prompt):
-    __gtype_name__ = "Compress"
-
     path = GObject.Property(type=str)
     archive_name = GObject.Property(type=Adw.EntryRow)
     archive_type = GObject.Property(type=Adw.ComboRow)
@@ -1495,7 +1483,6 @@ class ProgressReader:
         return chunk
 
 class Operation(ListObject):
-    __gtype_name__ = "Operation"
     type = GObject.Property(type=str)
     cancelled = GObject.Property(type=bool, default=False)
     files = GObject.Property(type=List)
@@ -1735,7 +1722,6 @@ class Operation(ListObject):
             if action == "Copy": Operation.copy(i.path, unique_name(i.get_name(), f).get_path())
 
 class OperationItem(Gtk.Box):
-    __gtype_name__ = "OperationItem"
     operation = GObject.Property(type=Operation)
     progress = GObject.Property(type=Gtk.ProgressBar)
     label = GObject.Property(type=Gtk.Label)
@@ -1829,7 +1815,6 @@ class OperationItem(Gtk.Box):
     factory.connect("teardown", teardown)
 
 class Operations(Gtk.Revealer):
-    __gtype_name__ = "Operations"
     list = List(Operation)
 
     def __init__(self):
@@ -1842,7 +1827,6 @@ class Operations(Gtk.Revealer):
         self.bind_property("reveal-child", self, "visible", DEFAULT_BIND)
 
 class Properties(PopupDialog):
-    __gtype_name__ = "Properties"
     group = GObject.Property(type=Adw.PreferencesGroup)
     path = GObject.Property(type=str)
     cancellable = GObject.Property(type=Gio.Cancellable)
@@ -2048,7 +2032,6 @@ class Thumbnailer:
             Task.invoke(Thumbnailer.do)
 
 class FileDialog(Window):
-    __gtype_name__ = "FileDialog"
     accept_label = GObject.Property(type=str)
     default_filter = GObject.Property(type=Gtk.FileFilter)
     filters = GObject.Property(type=Gio.ListModel)
