@@ -862,7 +862,7 @@ class Info(Gio.FileInfo):
         try:
             files = enumerator.next_files_finish(b)
         except Exception as ex:
-            print(ex)
+            print("Info:", ex)
             files = []
         e[0].extend(files)
         if len(files) == 10000: enumerator.next_files_async(10000, GLib.PRIORITY_DEFAULT, e[1], Info.do_parse, e)
@@ -1993,7 +1993,7 @@ class Thumbnailer:
     @staticmethod
     def remove(c):
         if Thumbnailer.tasks and c == Thumbnailer.tasks[0] and Thumbnailer.doing:
-            print("Thumbnailer", c, "failed")
+            print("Thumbnailer:", c, "failed")
             Thumbnailer.doing = False
             Thumbnailer.tasks.remove(c)
             Task.invoke(Thumbnailer.do)
@@ -2162,15 +2162,13 @@ class FileDialog(Window):
             f = Gio.File.new_for_path(display(r[0].path))
             return (f, "") if "text" in self.operation else f
 
-    def cancel(c, self):
-        if self.get_mapped(): self.close()
-
     def start(self, parent=None, cancellable=None, callback=None, user_data=None):
         self.user_data = user_data
         self.cancellable = cancellable
         self.callback = callback
         if self.cancellable:
-            self.connect_id = self.cancellable.connect(self.__class__.cancel, self)
+            def cancel(): Task.invoke(self.close)
+            self.connect_id = self.cancellable.connect(cancel)
         if self.initial_file:
             self.initial_folder = self.initial_file.get_parent()
         if self.initial_folder:
