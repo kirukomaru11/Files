@@ -237,7 +237,7 @@ class Window(Window):
             if self.context and self.context.get_mapped():
                 self.context.popdown()
                 return True
-            if view and view.get_selected():
+            if view and [i for i in view.get_selected()]:
                 view.selection.unselect_all()
                 return True
             if self.standalone:
