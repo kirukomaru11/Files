@@ -482,6 +482,15 @@ class Window(Window):
         if isinstance(v, Gdk.Texture): v.save_to_png(unique_name("image", d=file, end=".png").get_path())
         tab.load(history=True)
 
+class SearchAutocompleteItem(ListItem):
+    def __init__(self): super().__init__(child=Gtk.Label(xalign=0))
+
+    def bind(self):
+        self.bindings = [self.item.bind_property("string", self.get_child(), "label", DEFAULT_BIND, SearchAutocompleteItem.text_bind)]
+
+    @staticmethod
+    def text_bind(b, v): return basename(v)
+
 class Search(Adw.Bin):
     text = GObject.Property(type=Gtk.Text)
     preview = GObject.Property(type=Gtk.ScrolledWindow)
@@ -496,14 +505,7 @@ class Search(Adw.Bin):
         self.get_child().connect("notify::visible-child-name", self.__class__.apply_class)
         self.get_child().add_named(self.preview, "Preview")
         self.get_child().add_named(Adw.Clamp(orientation=Gtk.Orientation.HORIZONTAL, child=self.text, maximum_size=650, tightening_threshold=650, hexpand=True), "Editing")
-        self.autocomplete = Autocomplete(self.text, select=True, bind=self.__class__.bind, text_activate=self.__class__.text_activate, complete=self.__class__.complete)
-
-    @staticmethod
-    def bind(f, l):
-        l.get_child().bindings = [l.get_property("item").bind_property("string", l.get_child(), "label", DEFAULT_BIND, Search.text_bind)]
-
-    @staticmethod
-    def text_bind(b, v): return basename(v)
+        self.autocomplete = Autocomplete(self.text, select=True, factory=SearchAutocompleteItem.factory, text_activate=self.__class__.text_activate, complete=self.__class__.complete)
 
     @staticmethod
     def text_activate(text, autocomplete, s):
