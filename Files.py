@@ -1723,16 +1723,13 @@ class Operation(ListObject):
             if action == "Move": Operation.move(i.path, unique_name(i.get_name(), f).get_path())
             if action == "Copy": Operation.copy(i.path, unique_name(i.get_name(), f).get_path())
 
-class OperationItem(Gtk.Box):
-    operation = GObject.Property(type=Operation)
+class OperationItem(ListItem):
     progress = GObject.Property(type=Gtk.ProgressBar)
     label = GObject.Property(type=Gtk.Label)
     image = GObject.Property(type=Gtk.Image)
     undo = GObject.Property(type=Gtk.Button)
     def __init__(self):
-        super().__init__(css_name="operation", orientation=Gtk.Orientation.VERTICAL)
-        self.bindings = []
-        self.connect("notify::operation", self.__class__.operation_changed)
+        super().__init__(css_name="operation", child=Gtk.Box(orientation=Gtk.Orientation.VERTICAL))
         box = Gtk.Box(hexpand=True)
         self.image = Gtk.Image(css_classes=["circular"])
         box.append(self.image)
@@ -1742,21 +1739,16 @@ class OperationItem(Gtk.Box):
         self.undo = Button(tooltip_text="Undo", icon_name="edit-undo", css_classes=["circular"], callback=self.__class__.undo)
         box.append(self.undo)
         box.append(Button(tooltip_text="Remove", icon_name="process-stop", css_classes=["circular"], callback=self.__class__.remove))
-        self.append(box)
+        self.get_child().append(box)
         self.progress = Gtk.ProgressBar()
         self.progress.bind_property("fraction", self.progress, "visible", DEFAULT_BIND, self.__class__.progress_bind)
-        self.append(self.progress)
+        self.get_child().append(self.progress)
 
-    @staticmethod
-    def operation_changed(self, p=None):
-        for i in self.bindings: i.unbind()
-        self.bindings = []
-        if self.operation:
-            self.bindings.append(self.operation.bind_property("progress", self.progress, "fraction", DEFAULT_BIND))
-            self.bindings.append(self.operation.bind_property("progress", self.label, "label", DEFAULT_BIND, self.__class__.label_bind))
-            self.bindings.append(self.operation.bind_property("type", self.image, "icon-name", DEFAULT_BIND, self.__class__.icon_bind))
-            self.bindings.append(self.operation.bind_property("can-undo", self.undo, "visible", DEFAULT_BIND))
-
+    def bind(self):
+        self.bindings.append(self.item.bind_property("progress", self.progress, "fraction", DEFAULT_BIND))
+        self.bindings.append(self.item.bind_property("progress", self.label, "label", DEFAULT_BIND, self.__class__.label_bind))
+        self.bindings.append(self.item.bind_property("type", self.image, "icon-name", DEFAULT_BIND, self.__class__.icon_bind))
+        self.bindings.append(self.item.bind_property("can-undo", self.undo, "visible", DEFAULT_BIND))
 
     @staticmethod
     def icon_bind(b, v):
@@ -1790,31 +1782,14 @@ class OperationItem(Gtk.Box):
     @staticmethod
     def undo(b):
         self = b.get_ancestor(OperationItem)
-        if not self or not self.operation: return
-        self.operation.undo()
+        if not self or not self.item: return
+        self.item.undo()
 
     @staticmethod
     def remove(b):
         self = b.get_ancestor(OperationItem)
-        if not self or not self.operation: return
-        self.operation.cancel()
-
-    factory = Gtk.SignalListItemFactory.new()
-    @staticmethod
-    def setup(f, l): l.set_child(OperationItem())
-    factory.connect("setup", setup)
-    @staticmethod
-    def bind(f, l):
-        Task.invoke(l.get_child().get_parent().set_properties, css_classes=[], focusable=False)
-        l.get_child().operation = l.get_property("item")
-    factory.connect("bind", bind)
-    @staticmethod
-    def unbind(f, l):
-        l.get_child().operation = None
-    factory.connect("unbind", unbind)
-    @staticmethod
-    def teardown(f, l): l.set_child(None)
-    factory.connect("teardown", teardown)
+        if not self or not self.item: return
+        self.item.cancel()
 
 class Operations(Gtk.Revealer):
     list = List(Operation)
@@ -2366,10 +2341,10 @@ APP_CSS = """
 .compress list.main.boxed-list > row:last-child { padding: 0px; }
 
 .files-window .operations popover { min-width: 360px; }
-.files-window .operations operation { padding: 6px; border-spacing: 8px; }
+.files-window .operations operation > box { padding: 6px; border-spacing: 8px; }
 .files-window .operations operation progressbar { padding: 0px 2px;}
-.files-window .operations operation box { margin: 0px; border-spacing: 6px; }
-.files-window .operations operation > box > image { -gtk-icon-size: 20px; padding: 0px 6px; }
+.files-window .operations operation > box box { margin: 0px; border-spacing: 6px; }
+.files-window .operations operation > box > box > image { -gtk-icon-size: 20px; padding: 0px 6px; }
 .files-window .operations listview { border-spacing: 8px; padding: 0px; }
 .files-window .operations listview row { margin: 0px; padding: 0px; background: color-mix(in srgb, currentColor 5%, transparent); }
 .files-window .operations scrolledwindow scrollbar { padding: 0px; }
