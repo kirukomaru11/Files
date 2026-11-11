@@ -75,7 +75,7 @@ class Window(Window):
         self.multi = Adw.MultiLayoutView()
         self.view = Adw.TabView()
         overlay = Gtk.Overlay(child=self.view)
-        self.find = Gtk.SearchEntry(placeholder_text="Find")
+        self.find = Gtk.SearchEntry(css_classes=["dark-blur-background"], placeholder_text="Find")
         self.find.connect("activate", self.__class__.do_find)
         self.find.connect("stop-search", self.__class__.stop_find)
         overlay.add_overlay(Gtk.SearchBar(css_name="find", halign=Gtk.Align.CENTER, vexpand=True, child=self.find))
@@ -1234,41 +1234,12 @@ class View(Gtk.Overlay):
 class ColumnItem:
     columns = {}
     @staticmethod
-    def setup(f, l):
-        if getattr(f, "title", "") == "Name":
-            image = Gtk.Image()
-            Gio.Application.get_default().lookup_action("icon-size").bind_property("state", image, "pixel-size", DEFAULT_BIND, unpack_bind)
-            o = Gtk.Overlay(child=image)
-            for i in ("cut", "copy"):
-                i = Gtk.Image(name=i, halign=Gtk.Align.START, valign=Gtk.Align.START, icon_name=f"edit-{i}-symbolic", visible=False)
-                image.bind_property("pixel-size", i, "pixel-size", DEFAULT_BIND, GridItem.action_size_bind)
-                o.add_overlay(i)
-            box = Gtk.Box(css_name="item-box")
-            box.append(o)
-            box.append(Gtk.Label(single_line_mode=True, ellipsize=Pango.EllipsizeMode.END))
-            l.set_child(box)
-        else: l.set_child(Gtk.Label(single_line_mode=True, ellipsize=Pango.EllipsizeMode.END))
-
-    @staticmethod
-    def bind(f, l):
-        if getattr(f, "title", "") == "Name":
-            l.binds = []
-            for c in l.get_child():
-                if isinstance(c, Gtk.Label): l.get_property("item").bind_property(f.title.lower().replace(" ", "-"), c, "label", DEFAULT_BIND, ColumnItem.column_bind)
-                else:
-                    for i in c:
-                        if i.get_name() in ("cut", "copy"): l.binds.append(l.get_property("item").bind_property(f"is-{i.get_name()}", i, "visible", DEFAULT_BIND))
-                        else: l.binds.append(l.get_property("item").bind_property("display-icon", i, "name", DEFAULT_BIND, ColumnItem.icon_bind))
-        else:
-            l.binds = [l.get_property("item").bind_property(f.title.replace(" Time", "").lower().replace(" ", "-"), l.get_child(), "label", DEFAULT_BIND, ColumnItem.column_bind)]
-
-    @staticmethod
     def icon_bind(b, v):
         Task.invoke(b.get_property("source").set_image_icon, b.get_property("target"))
         return ""
 
     @staticmethod
-    def column_bind(b, v):
+    def label_bind(b, v):
         name =  b.get_property("source-property")
         if isinstance(v, GLib.DateTime):
             v = v.to_local().format("%x %T")
@@ -1279,77 +1250,76 @@ class ColumnItem:
         return v
 
     @staticmethod
-    def unbind(f, l):
-        for i in getattr(l, "binds", []): i.unbind()
-        if hasattr(l, "binds"): del l.binds
+    def get_title(i): return i.__class__.__name__.replace("T", " T")
 
     @staticmethod
-    def teardown(f, l): l.set_child(None)
+    def init(self):
+        title = ColumnItem.get_title(self)
+        if title == "Name":
+            image = Gtk.Image()
+            Gio.Application.get_default().lookup_action("icon-size").bind_property("state", image, "pixel-size", DEFAULT_BIND, unpack_bind)
+            o = Gtk.Overlay(child=image)
+            for i in ("cut", "copy"):
+                i = Gtk.Image(css_classes=["blur-background"], name=i, halign=Gtk.Align.START, valign=Gtk.Align.START, icon_name=f"edit-{i}-symbolic", visible=False)
+                image.bind_property("pixel-size", i, "pixel-size", DEFAULT_BIND, GridItem.action_size_bind)
+                o.add_overlay(i)
+            child = box = Gtk.Box(css_name="item-box")
+            box.append(o)
+            box.append(Gtk.Label(single_line_mode=True, ellipsize=Pango.EllipsizeMode.END))
+        else:
+            child = Gtk.Label(single_line_mode=True, ellipsize=Pango.EllipsizeMode.END)
+        ListItem.__init__(self, child=child)
 
-    for i in ("Name", "Content Type", "Modification Time", "Size"):
-        factory = Gtk.SignalListItemFactory.new()
-        setattr(factory, "title", i)
-        factory.connect("setup", setup)
-        factory.connect("bind", bind)
-        factory.connect("unbind", unbind)
-        factory.connect("teardown", teardown)
-        columns[i] = factory
+    @staticmethod
+    def bind(self):
+        title = ColumnItem.get_title(self)
+        if title == "Name":
+            for c in self.get_child():
+                if isinstance(c, Gtk.Label): self.bindings.append(self.item.bind_property(title.lower().replace(" ", "-"), c, "label", DEFAULT_BIND, ColumnItem.label_bind))
+                else:
+                    for i in c:
+                        if i.get_name() in ("cut", "copy"): self.bindings.append(self.item.bind_property(f"is-{i.get_name()}", i, "visible", DEFAULT_BIND))
+                        else: self.bindings.append(self.item.bind_property("display-icon", i, "name", DEFAULT_BIND, ColumnItem.icon_bind))
+        else:
+            self.bindings = [self.item.bind_property(title.replace(" Time", "").lower().replace(" ", "-"), self.get_child(), "label", DEFAULT_BIND, ColumnItem.label_bind)]
 
-class GridItem(Gtk.Overlay):
+for i in ("Name", "Content Type", "Modification Time", "Size"):
+    ColumnItem.columns[i] = type(i.replace(" ", ""), (ListItem,), {"__init__": ColumnItem.init, "bind": ColumnItem.bind}).factory
+
+class GridItem(ListItem):
     info = GObject.Property(type=Info)
     image = GObject.Property(type=Gtk.Image)
     label = GObject.Property(type=Gtk.Label)
     cut = GObject.Property(type=Gtk.Image)
     copy = GObject.Property(type=Gtk.Image)
 
-    def __init__(self, **kwargs):
+    def __init__(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        super().__init__(css_name="griditem", child=box, **kwargs)
-        self.cut, self.copy = [Gtk.Image(halign=Gtk.Align.START, valign=Gtk.Align.START, icon_name=f"edit-{i}-symbolic", visible=False) for i in ("cut", "copy")]
-        self.bindings = []
+        overlay = Gtk.Overlay(child=box)
+        super().__init__(css_name="griditem", child=overlay)
+        self.bind_property("item", self, "info", DEFAULT_BIND)
+        self.cut, self.copy = [Gtk.Image(css_classes=["blur-background"], halign=Gtk.Align.START, valign=Gtk.Align.START, icon_name=f"edit-{i}-symbolic", visible=False) for i in ("cut", "copy")]
         self.image = Gtk.Image()
         self.label = Gtk.Label(justify=Gtk.Justification.CENTER, halign=Gtk.Align.CENTER, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR, ellipsize=Pango.EllipsizeMode.END)
         self.image.bind_property("tooltip-text", self.label, "label", DEFAULT_BIND)
         for i in (self.image, self.label): box.append(i)
         for i in (self.cut, self.copy):
             self.image.bind_property("pixel-size", i, "pixel-size", DEFAULT_BIND, self.__class__.action_size_bind)
-            self.add_overlay(i)
+            overlay.add_overlay(i)
         Gio.Application.get_default().lookup_action("icon-size").bind_property("state", self.image, "pixel-size", DEFAULT_BIND, unpack_bind)
         Gio.Application.get_default().lookup_action("show-names").bind_property("state", self.label, "visible", DEFAULT_BIND, unpack_bind)
-        self.connect("notify::info", self.__class__.info_changed)
-        self.__class__.info_changed(self)
 
     @staticmethod
-    def action_size_bind(b, v): return max(10, v / 6)
+    def action_size_bind(b, v): return max(10, v / 10)
 
-    @staticmethod
-    def info_changed(self, p=0):
-        for i in self.bindings: i.unbind()
-        self.bindings = []
-        if self.info:
-            self.bindings.append(self.info.bind_property("path", self.image, "tooltip-text", DEFAULT_BIND, self.__class__.basename_bind))
-            self.bindings.append(self.info.bind_property("is-cut", self.cut, "visible", DEFAULT_BIND))
-            self.bindings.append(self.info.bind_property("is-copy", self.copy, "visible", DEFAULT_BIND))
-            self.bindings.append(self.info.bind_property("display-icon", self.image, "name", DEFAULT_BIND, ColumnItem.icon_bind))
+    def bind(self):
+        self.bindings.append(self.item.bind_property("path", self.image, "tooltip-text", DEFAULT_BIND, self.__class__.basename_bind))
+        self.bindings.append(self.item.bind_property("is-cut", self.cut, "visible", DEFAULT_BIND))
+        self.bindings.append(self.item.bind_property("is-copy", self.copy, "visible", DEFAULT_BIND))
+        self.bindings.append(self.item.bind_property("display-icon", self.image, "name", DEFAULT_BIND, ColumnItem.icon_bind))
 
     @staticmethod
     def basename_bind(b, v): return basename(v) if v else ""
-
-    factory = Gtk.SignalListItemFactory.new()
-    @staticmethod
-    def setup(f, l): l.set_child(GridItem())
-    factory.connect("setup", setup)
-    @staticmethod
-    def bind(f, l):
-        l.get_child().info = l.get_property("item")
-    factory.connect("bind", bind)
-    @staticmethod
-    def unbind(f, l):
-        l.get_child().info = None
-    factory.connect("unbind", unbind)
-    @staticmethod
-    def teardown(f, l): l.set_child(None)
-    factory.connect("teardown", teardown)
 
 class Context(Gtk.PopoverMenu):
     widget = GObject.Property(type=GObject.Object)
@@ -2331,10 +2301,13 @@ APP_CSS = """
 .files-window view gridview { border-spacing: 6px; margin: 0px 6px 6px 6px; }
 .files-window view gridview child { transition: all 0.2s; padding: 0px; }
 .files-window view griditem label { padding: 0px 8px 12px 8px; }
-.files-window view griditem > image { margin: 6px 0px 0px 6px; color: var(--window-fg-color); backdrop-filter: blur(10px); padding: 8px; border-radius: 100px; }
 .files-window view :selected { background: color-mix(in srgb, var(--window-fg-color) 5%, transparent);  }
 .files-window .toolbar-fullscreen view { margin-top: 6px; }
-.files-window view griditem image { filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3)); }
+
+.files-window view griditem .blur-background,
+.files-window view columnview .blur-background { margin: 6px 0px 0px 6px; padding: 8px; border-radius: 100px; }
+.files-window view gridview overlay box > image,
+.files-window view columnview overlay > image { filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3)); }
 
 .compress list.main.boxed-list > row > entry.password { background: none; min-height: 50px; border-radius: 0px 0px 12px 12px; }
 .compress list.main.boxed-list > row > entry.password:focus-within { outline-offset: -1px; outline-width: 2px; }
@@ -2375,7 +2348,7 @@ APP_CSS = """
 .files-window save:focus-within,
 .files-window search clamp > text:focus-within { outline-width: 2px; outline-offset: -2px; outline-color: color-mix(in srgb, var(--accent-color) 50%, transparent); }
 .files-window find { margin-bottom: 6px; }
-.files-window find entry { backdrop-filter: blur(20px) brightness(0.9); background: color-mix(in srgb, var(--window-bg-color) 35%, transparent); min-width: 320px; }
+.files-window find entry { min-width: 320px; }
 .files-window .toolbar-fullscreen find { margin-top: 6px; }
 """
 
