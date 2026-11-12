@@ -179,7 +179,7 @@ class Window(Window):
         for k, v in {"Sort": "Alphabetical", "Icon Size": 128, "Show Names": True, "Thumbnails": False, "Default Width": 360, "Default Height": 600, "Maximized": False, "Fullscreen": False }.items():
             name = k.lower().replace(" ", "-")
             if not App.default.lookup_action(name):
-                Window.data.persist_action(App.default, name, (k, v), "Settings", "Value", "Key = ?", (k,))
+                DataSetting.persist_action(App.default, name, k, v)
                 if name == "sort": App.default.lookup_action(name).connect("notify::state", sort_reload)
 
     @staticmethod
@@ -710,6 +710,14 @@ class Tab(Adw.Bin):
         Tab.closed.append(t.path)
         view.get_root().lookup_action("reopen-tab").set_enabled(bool(Tab.closed))
 
+class Icon(metaclass=DictSettingMeta):
+    key = GObject.Property(type=str, nick="Path")
+    value = GObject.Property(type=str, nick="Icon")
+
+    def get_data():
+        Window.data_init()
+        return Window.data
+
 class Info(Gio.FileInfo):
     archive_types = ("application/zip", "application/x-gtar", "application/x-tar", "application/x-xz-compressed-tar", "application/x-compressed-tar")
     attributes = "standard::name,standard::display-name,standard::type,standard::icon,standard::is-symlink,standard::symlink-target,standard::content-type,standard::size,time::modified,metadata::custom-icon,unix::is-mountpoint"
@@ -753,18 +761,17 @@ class Info(Gio.FileInfo):
 
     @GObject.Property(type=str)
     def custom_icon(self):
-        path = display(self.path)
-        Window.data_init()
-        if path and Window.data.exists(table="Icons", conditions="Path = ?", conds=(path,)): return Window.data.read(table="Icons", column="Icon", conditions="Path = ?", conds=(path,))
+        v = Icon[display(self.path)]
+        if v: return v
         else: return self.get_attribute_as_string("metadata::custom-icon") if self.has_attribute("metadata::custom-icon") else ""
 
     @custom_icon.setter
     def custom_icon(self, v):
-        Window.data_init()
         p = display(self.path)
-        Window.data.set_default(table="Icons", conditions="Path = ?", conds=(p,), values=(p, v))
-        if v: Window.data.update(table="Icons", conditions="Path = ?", column="Icon", conds=(p,), value=v)
-        else: Window.data.delete(table="Icons", conditions="Path = ?", conds=(p,))
+        if p and v:
+            Icon[p] = v
+        elif p:
+            del Icon[p]
         if exists("/usr/lib/gvfsd-metadata"): self.set_attribute_string("metadata::custom-icon", v, Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS)
 
     @GObject.Property(type=Gio.Icon)
@@ -1554,10 +1561,8 @@ class Operation(ListObject):
                     dst.write(chunk)
                     copied += len(chunk)
                     Task.invoke(setattr, self, "progress", copied / total if total else 1)
-        Window.data_init()
-        if Window.data.exists(table="Icons", conditions="Path = ?", conds=(old,)):
-            v = Window.data.read(table="Icons", column="Icon", conditions="Path = ?", conds=(old,))
-            Window.data.set_default(table="Icons", conditions="Path = ?", conds=(new,), values=(new, v))
+        v = Icon[display(old)]
+        if v: Icon.set_default(display(new), v)
         if callback: callback()
         self.reload_tabs()
 
@@ -1604,11 +1609,10 @@ class Operation(ListObject):
                 if "Permission denied" in str(e): Toast("Permission denied")
                 else: Toast(e)
                 return
-            Window.data_init()
-            if Window.data.exists(table="Icons", conditions="Path = ?", conds=(a,)):
-                v = Window.data.read(table="Icons", column="Icon", conditions="Path = ?", conds=(a,))
-                Window.data.set_default(table="Icons", conditions="Path = ?", conds=(b,), values=(b, v))
-                Window.data.delete(table="Icons", conditions="Path = ?", conds=(a,))
+            v = Icon[display(a)]
+            if v:
+                Icon[display(b)] = v
+                del Icon[display(a)]
             self.progress = 1
             self.reload_tabs()
 
@@ -2352,7 +2356,7 @@ APP_CSS = """
 .files-window .toolbar-fullscreen find { margin-top: 6px; }
 """
 
-DATA_INIT = "CREATE TABLE IF NOT EXISTS Settings (Key TEXT PRIMARY KEY NOT NULL, Value TEXT); CREATE TABLE IF NOT EXISTS Tabs (ID INTEGER PRIMARY KEY AUTOINCREMENT, Path TEXT NOT NULL DEFAULT '/'); CREATE TABLE IF NOT EXISTS Icons (Path TEXT PRIMARY KEY NOT NULL, Icon TEXT);"
+DATA_INIT = (DataSetting, Icon, "CREATE TABLE IF NOT EXISTS Tabs (ID INTEGER PRIMARY KEY AUTOINCREMENT, Path TEXT NOT NULL DEFAULT '/')")
 
 def main(): App(data=DATA_INIT, file_open=file_open, activate=activate, info=INFO, shortcuts=SHORTCUTS).main(APP_CSS)
 
