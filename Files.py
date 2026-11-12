@@ -36,6 +36,11 @@ class Window(Window):
     def __init__(self, standalone=False, multiple=True, tabs=None, **kwargs):
         tabs = tabs or []
         self.__class__.data_init()
+        for k, v in {"Sort": "Alphabetical", "Icon Size": 128, "Show Names": True, "Thumbnails": False, "Default Width": 360, "Default Height": 600, "Maximized": False, "Fullscreen": False }.items():
+            name = k.lower().replace(" ", "-")
+            if not App.default.lookup_action(name):
+                Settings.persist_action(App.default, name, k, v)
+                if name == "sort": App.default.lookup_action(name).connect("notify::state", sort_reload)
         super().__init__(**kwargs)
         self.connect("close-request", self.__class__.handle_close)
         if not APP_CSS in App.default.css:
@@ -176,11 +181,6 @@ class Window(Window):
                 else:
                     a = Path(DATA, "Files", "data")
                 Window.data = Data(a, DATA_INIT)
-        for k, v in {"Sort": "Alphabetical", "Icon Size": 128, "Show Names": True, "Thumbnails": False, "Default Width": 360, "Default Height": 600, "Maximized": False, "Fullscreen": False }.items():
-            name = k.lower().replace(" ", "-")
-            if not App.default.lookup_action(name):
-                DataSetting.persist_action(App.default, name, k, v)
-                if name == "sort": App.default.lookup_action(name).connect("notify::state", sort_reload)
 
     @staticmethod
     def stop_find(s): s.get_root().activate_action("find-bar")
@@ -714,9 +714,7 @@ class Icon(metaclass=DictSettingMeta):
     key = GObject.Property(type=str, nick="Path")
     value = GObject.Property(type=str, nick="Icon")
 
-    def get_data():
-        Window.data_init()
-        return Window.data
+    def get_data(): return Window.data
 
 class Info(Gio.FileInfo):
     archive_types = ("application/zip", "application/x-gtar", "application/x-tar", "application/x-xz-compressed-tar", "application/x-compressed-tar")
@@ -2356,7 +2354,12 @@ APP_CSS = """
 .files-window .toolbar-fullscreen find { margin-top: 6px; }
 """
 
-DATA_INIT = (DataSetting, Icon, "CREATE TABLE IF NOT EXISTS Tabs (ID INTEGER PRIMARY KEY AUTOINCREMENT, Path TEXT NOT NULL DEFAULT '/')")
+class Settings(metaclass=DictSettingMeta):
+    def get_data():
+        Window.data_init()
+        return Window.data
+
+DATA_INIT = (Settings, Icon, "CREATE TABLE IF NOT EXISTS Tabs (ID INTEGER PRIMARY KEY AUTOINCREMENT, Path TEXT NOT NULL DEFAULT '/')")
 
 def main(): App(data=DATA_INIT, file_open=file_open, activate=activate, info=INFO, shortcuts=SHORTCUTS).main(APP_CSS)
 
