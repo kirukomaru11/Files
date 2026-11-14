@@ -27,7 +27,7 @@ class Window(Window):
     context = GObject.Property(type=Gtk.Widget)
     entry_prompt = GObject.Property(type=EntryPrompt)
     prompt = GObject.Property(type=Prompt)
-    view = GObject.Property(type=Adw.TabView)
+    view = GObject.Property(type=DataTabView)
     standalone = GObject.Property(type=bool, default=False)
     multiple = GObject.Property(type=bool, default=True)
     find = GObject.Property(type=Gtk.SearchEntry)
@@ -78,7 +78,7 @@ class Window(Window):
         default_popover.add_child(icon_size, "size")
         self.menu = Button(t=Gtk.MenuButton, popover=default_popover, tooltip_text="Menu", icon_name="open-menu")
         self.multi = Adw.MultiLayoutView()
-        self.view = Adw.TabView()
+        self.view = TabView()
         overlay = Gtk.Overlay(child=self.view)
         self.find = Gtk.SearchEntry(css_classes=["dark-blur-background"], placeholder_text="Find")
         self.find.connect("activate", self.__class__.do_find)
@@ -107,16 +107,13 @@ class Window(Window):
         self.wide_header.pack_start(Button(icon_name="tab-new", tooltip_text="New Tab", callback=Tab.create))
         for i in self.__class__.data.read(table="Tabs", return_dict=True, force_tuple=True): Tab.create(path=i["Path"])
         for i in tabs: Tab.create(path=i)
-        if not self.view.get_selected_page(): Tab.create(view=self.view)
-        self.wide.add_top_bar(Adw.TabBar(view=self.view))
-        overview = Adw.TabOverview(child=self.multi, enable_new_tab=True, view=self.view, secondary_menu=default_popover.get_menu_model())
+        if not self.view.get_selected_page(): Tab.create(view=self.view.get_child())
+        self.wide.add_top_bar(Adw.TabBar(view=self.view.get_child()))
+        overview = Adw.TabOverview(child=self.multi, enable_new_tab=True, view=self.view.get_child(), secondary_menu=default_popover.get_menu_model())
         overview.connect("create-tab", Tab.overview_create)
-        tb = Adw.TabButton(view=self.view)
+        tb = Adw.TabButton(view=self.view.get_child())
         tb.connect("clicked", self.__class__.tab_button_clicked)
         self.narrow_header.pack_start(tb)
-        self.view.connect("notify::selected-page", Tab.changed)
-        self.view.connect("notify::n-pages", Tab.idle_save_all)
-        self.view.connect("page-reordered", Tab.idle_save_all)
         self.view.connect("create-window", self.__class__.create)
         self.view.connect("close-page", Tab.operation)
         b = Adw.Breakpoint.new(Adw.BreakpointCondition.new_length(Adw.BreakpointConditionLengthType.MAX_WIDTH, 700, Adw.LengthUnit.PX))
@@ -138,8 +135,8 @@ class Window(Window):
             self.present()
 
     def handle_close(self):
-        for i in self.view.get_pages():
-            if hasattr(i.get_child().get_child(), "cancellable"): i.get_child().get_child().cancellable.cancel()
+        for i in self.view:
+            if hasattr(i.get_child(), "cancellable"): i.get_child().cancellable.cancel()
 
     @staticmethod
     def button_action(b): Context.action(action="Icon " + b.get_tooltip_text())
@@ -155,7 +152,7 @@ class Window(Window):
     @staticmethod
     def do_find(s):
         if not (Tab.current and Tab.current.get_child()): return
-        view = Tab.current.get_child().search = s.get_text()
+        Tab.current.get_child().search = s.get_text()
 
     @staticmethod
     def data_uninit():
@@ -394,14 +391,14 @@ class Window(Window):
         else: self.remove_css_class("small")
 
     @staticmethod
-    def on_map(self): Tab.changed(self.view)
+    def on_map(self): self.view.page_changed()
 
     def get_all_items(self, current_view=False, selected=False):
         if current_view and hasattr(self, "view"): return [i for i in self.view.get_selected_page().get_child().get_child().get_items()]
         selecteds = []
         if hasattr(self, "view"):
-            for i in self.view.get_pages():
-                v = i.get_child().get_child()
+            for i in self.view:
+                v = i.get_child()
                 if not isinstance(v, View): continue
                 if selected: selecteds.extend([i for i in v.get_selected()])
                 else: selecteds.extend([i for i in v.get_items()])
@@ -482,6 +479,13 @@ class Window(Window):
         if isinstance(v, Gdk.Texture): v.save_to_png(unique_name("image", d=file, end=".png").get_path())
         tab.load(history=True)
 
+class TabView(DataTabView):
+    def page_changed(self):
+        if not self.get_mapped() or not self.current: return
+        tab = self.current
+        if tab.get_child(): Task.invoke(tab.sync)
+        else: Task.invoke(tab.load)
+
 class SearchAutocompleteItem(ListItem):
     def __init__(self): super().__init__(child=Gtk.Label(xalign=0))
 
@@ -520,7 +524,6 @@ class Search(Adw.Bin):
             if not t: return
             t.path = te
             t.load()
-            Tab.idle_save_all()
             return True
 
     @staticmethod
@@ -587,18 +590,17 @@ class Search(Adw.Bin):
         if self.get_child().get_visible_child_name() == "Preview": self.set_editing()
         else: self.set_preview()
 
-class Tab(Adw.Bin):
-    tab = GObject.Property(type=Adw.TabPage)
+class Tab(DataTab):
     path = GObject.Property(type=str)
+    properties = ["path"]
     history = GObject.Property(type=object)
     index = GObject.Property(type=int, minimum=0)
     closed = []
 
     @classproperty
-    def current(*_): return Window.current.view.get_selected_page().get_child() if Window.current and Window.current.view.get_selected_page() else None
+    def current(*_): return Window.current.view.current if Window.current else None
 
-    def __init__(self, path=False, view=None, prepend=False):
-        super().__init__(css_name=self.__class__.__name__.lower())
+    def __init__(self, path=False, view=None):
         view = view or Window.current.view
         current_tab = self.__class__.current
         if path == False:
@@ -606,15 +608,12 @@ class Tab(Adw.Bin):
         if FLATPAK_ID:
             if not path.startswith(ROOT):
                 path = Path(ROOT, path)
-        if prepend:
-            self.tab = view.prepend(self)
-        else:
-            self.tab = view.add_page(self, current_tab.tab if current_tab else None) if view.get_mapped() else view.append(self)
-        self.path = path
+        path = path
+        super().__init__(view=view, css_name="tab", path=path)
         self.bind_property("path", self.tab, "title", DEFAULT_BIND, self.__class__.title_bind)
 
     @staticmethod
-    def create(*_, view=False, path=False, prepend=False): return Tab(view=view if isinstance(view, Adw.TabView) else False, path=path, prepend=prepend)
+    def create(*_, view=False, path=False): return Tab(view=view, path=path)
 
     @staticmethod
     def overview_create(*_): return Tab.create().tab
@@ -672,38 +671,18 @@ class Tab(Adw.Bin):
             if w.find.get_text() and not w.find.get_mapped(): w.toggle_find()
 
     @staticmethod
-    def changed(view, *_):
-        self = Tab.current
-        if not self or not view.get_mapped(): return
-        if self.get_child(): Task.invoke(self.sync)
-        else: Task.invoke(self.load)
-
-    @staticmethod
-    def idle_save_all(*_): Task.invoke(Tab.get_all, save=True)
-
-    @staticmethod
-    def get_all(save=False, window=None):
+    def get_all():
         tabs = []
-        cleared = False
-        for w in Gio.Application.get_default().get_windows():
-            if not isinstance(w, Window) or not isinstance(getattr(w, "view", None), Adw.TabView) or save and (w.standalone or not w.get_mapped()): continue
-            for i in w.view.get_pages():
-                if isinstance(i.get_child(), Tab): tabs.append(i.get_child())
-        if tabs and save:
-            r = tabs[-1].get_root()
-            if not r: return
-            Window.data_init()
-            try: Window.data.table_clear(table="Tabs")
-            except: return
-            for i in tabs:
-                if i.get_root() == r: Window.data.new(table="Tabs", values=(None, i.path, ))
+        for w in App.default.get_windows():
+            if not isinstance(w, Window): continue
+            for i in w.view: tabs.append(i)
         return tabs
 
     @staticmethod
     def operation(v=None, t=None):
         if isinstance(t, Adw.TabPage):
             t = t.get_child()
-        view = t.get_ancestor(Adw.TabView)
+        view = t.get_ancestor(TabView)
         if not v:
             if hasattr(t.get_child(), "cancellable"): t.get_child().cancellable.cancel()
             view.close_page(t.tab)
@@ -1152,7 +1131,6 @@ class View(Gtk.Overlay):
         Task.invoke(self.sync_status, extra=extra)
         if self.get_root():
             Task.invoke(self.get_parent().sync)
-            Tab.idle_save_all()
             if hasattr(self.get_root(), "handle_load"): Task.invoke(self.get_root().handle_load)
 
     @staticmethod
@@ -2037,8 +2015,7 @@ class FileDialog(Window):
 
     def default_filter_changed(self, p=None):
         if self.filters or self.default_filter:
-            for i in self.view.get_pages():
-                i = i.get_child()
+            for i in self.view:
                 if isinstance(i.get_child(), View):
                     while i.get_child().filters.get_n_items() > 1: i.get_child().filters.remove(1)
                     if self.default_filter: i.get_child().filters.append(self.default_filter)
@@ -2085,8 +2062,8 @@ class FileDialog(Window):
         elif c: c(self, None)
 
     def handle_close(self):
-        for i in self.view.get_pages():
-            if hasattr(i.get_child().get_child(), "cancellable"): i.get_child().get_child().cancellable.cancel()
+        for i in self.view:
+            if hasattr(i.get_child(), "cancellable"): i.get_child().cancellable.cancel()
         if self.cancellable: self.cancellable.disconnect(self.connect_id)
         if self.get_content():
             self.set_content(None)
@@ -2122,9 +2099,9 @@ class FileDialog(Window):
             self.initial_folder = self.initial_file.get_parent()
         if self.initial_folder:
             t = None
-            for i in self.view.get_pages():
-                if display(i.get_child().path) == self.initial_folder.get_path():
-                    t = i.get_child()
+            for i in self.view:
+                if display(i.path) == self.initial_folder.get_path():
+                    t = i
             if not t:
                 t = Tab.create(view=self.view, path=self.initial_folder.get_path())
             self.view.set_selected_page(t.tab)
@@ -2359,7 +2336,7 @@ class Settings(metaclass=DictSettingMeta):
         Window.data_init()
         return Window.data
 
-DATA_INIT = (Settings, Icon, "CREATE TABLE IF NOT EXISTS Tabs (ID INTEGER PRIMARY KEY AUTOINCREMENT, Path TEXT NOT NULL DEFAULT '/')")
+DATA_INIT = (Settings, Icon, Tab)
 
 def main(): App(data=DATA_INIT, file_open=file_open, activate=activate, info=INFO, shortcuts=SHORTCUTS).main(APP_CSS)
 
