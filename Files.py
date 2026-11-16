@@ -1283,6 +1283,7 @@ for i in ("Name", "Content Type", "Modification Time", "Size"):
     ColumnItem.columns[i] = type(i.replace(" ", ""), (ListItem,), {"__init__": ColumnItem.init, "bind": ColumnItem.bind}).factory
 
 class GridItem(ListItem):
+    parent_options = False
     info = GObject.Property(type=Info)
     image = GObject.Property(type=Gtk.Image)
     label = GObject.Property(type=Gtk.Label)
