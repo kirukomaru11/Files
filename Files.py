@@ -486,6 +486,11 @@ class TabView(DataTabView):
         if tab.get_child(): Task.invoke(tab.sync)
         else: Task.invoke(tab.load)
 
+    @staticmethod
+    def get_data():
+        Window.data_init()
+        return Window.data
+
 class SearchAutocompleteItem(ListItem):
     def __init__(self): super().__init__(child=Gtk.Label(xalign=0))
 
@@ -600,6 +605,11 @@ class Tab(DataTab):
     @classproperty
     def current(*_): return Window.current.view.current if Window.current else None
 
+    @staticmethod
+    def get_data():
+        Window.data_init()
+        return Window.data
+
     def __init__(self, path=False, view=None):
         view = view or Window.current.view
         current_tab = self.__class__.current
@@ -693,7 +703,10 @@ class Icon(metaclass=DictSettingMeta):
     key = GObject.Property(type=str, nick="Path")
     value = GObject.Property(type=str, nick="Icon")
 
-    def get_data(): return Window.data
+    @staticmethod
+    def get_data():
+        Window.data_init()
+        return Window.data
 
 class Info(Gio.FileInfo):
     archive_types = ("application/zip", "application/x-gtar", "application/x-tar", "application/x-xz-compressed-tar", "application/x-compressed-tar")
