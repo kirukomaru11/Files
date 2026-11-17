@@ -747,7 +747,7 @@ class Info(Gio.FileInfo):
     def symlink_target(self): return self.get_attribute_as_string("standard::symlink-target") if self.has_attribute("standard::symlink-target") else ""
 
     @symlink_target.setter
-    def symlink_target(self, value): self.set_attribute_byte_string("standard::symlink-target", value, Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS)
+    def symlink_target(self, value): self.set_attribute_byte_string("standard::symlink-target", value)
 
     @GObject.Property(type=str)
     def custom_icon(self):
